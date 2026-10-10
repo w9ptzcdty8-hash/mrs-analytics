@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "mrs-analytics",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-10-10",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": {"enabled": false},
+  "vars": {"MODE":"production", "ENABLED":"false", "DAILY_CAP":"1000"},
+  "d1_databases": [{"binding":"DB", "database_name":"mrs-analytics-production", "database_id":"39f5c8c5-de11-40af-ae0e-4a47182f06e4"}],
+  "triggers": {"crons":["17 * * * *"]},
+  "env": {
+    "preview": {
+      "name": "mrs-analytics-preview",
+      "vars": {"MODE":"preview", "ENABLED":"true", "DAILY_CAP":"1000"},
+      "d1_databases": [{"binding":"DB", "database_name":"mrs-analytics-preview", "database_id":"9fe49965-1e44-462a-8e72-2bdddc993938"}],
+      "triggers": {"crons":["17 * * * *"]}
+    }
+  }
+}
