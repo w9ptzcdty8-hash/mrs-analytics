@@ -56,9 +56,8 @@ test('JST midnight boundary is independent of UTC day',()=>{
   assert.equal(jstDay(Date.parse('2026-10-10T15:00:00Z')),'2026-10-11');
 });
 const client=readFileSync(new URL('../client/analytics.js',import.meta.url),'utf8');
-function browser({storage=new Map(),offline=false,blocked=false,disabled=false}={}) {
+function browser({storage=new Map(),offline=false,blocked=false}={}) {
   const pending=[];const calls=[];const handlers={};
-  if(disabled)storage.set('mrs.analytics.disabled','true');
   const localStorage={getItem(k){if(blocked)throw Error('denied');return storage.get(k)||null;},setItem(k,v){if(blocked)throw Error('denied');storage.set(k,v);},removeItem(k){storage.delete(k);}};
   const ctx={document:{currentScript:{dataset:{siteId:'tools-home'}},getElementById(){return null;},visibilityState:'visible',addEventListener(k,v){handlers[k]=v;}},location:{origin:'https://mrs-tools.pages.dev',hostname:'mrs-tools.pages.dev',pathname:'/'},navigator:{onLine:!offline},localStorage,crypto,Date,JSON,AbortController,setTimeout(fn,ms){if(ms===0)pending.push(fn);return 1;},clearTimeout(){},async fetch(url,options){calls.push({url,options});throw Error('network');}};
   vm.runInNewContext(client,ctx);return {calls,handlers,ctx,async flush(){for(const fn of pending.splice(0))fn();await new Promise(r=>setImmediate(r));}};
@@ -70,7 +69,7 @@ test('client reuses day ID but new event per load; resume sends nothing extra',a
   assert.equal(p.visitor_id,q.visitor_id);assert.notEqual(p.event_id,q.event_id);
   assert.equal(a.calls[0].options.referrerPolicy,'no-referrer');
 });
-test('offline and opt-out send nothing; blocked storage counts without identity',async()=>{
-  for(const options of [{offline:true},{disabled:true}]){const b=browser(options);await b.flush();assert.equal(b.calls.length,0);}
+test('offline sends nothing; blocked storage counts without identity',async()=>{
+  const offline=browser({offline:true});await offline.flush();assert.equal(offline.calls.length,0);
   const b=browser({blocked:true});await b.flush();assert.equal(JSON.parse(b.calls[0].options.body).visitor_id,null);
 });

@@ -28,17 +28,13 @@ const fs=require('node:fs');
   const invalid=await page.evaluate(async endpoint=>{
     const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({site_id:'other'})});return r.status;
   },endpoint);assert.equal(invalid,400);
-  await page.locator('#mrs-analytics-toggle').click();
-  assert.equal(await page.locator('#mrs-analytics-toggle').getAttribute('aria-pressed'),'true');
-  const before=responses.length;await page.reload();await page.waitForTimeout(800);assert.equal(responses.length,before);
-  await page.locator('#mrs-analytics-toggle').click();
-  await load(()=>page.reload());
+  assert.equal(await page.locator('#mrs-analytics-toggle').count(),0);
   // Failure of just the analytics API leaves the home and navigation operational.
   await page.route(endpoint,r=>r.abort());await page.reload();
   assert.equal(await page.locator('h1').textContent(),'MRS TOOLS');
   assert.ok(await page.locator('a.tool-button').count()>5);
-  const output={passed:true,pageviewsExpected:4,dailyUniquesExpected:2,
-    checks:['mobile layout','reload identity','concurrent duplicate','invalid payload','opt-out reload','re-enable','analytics network failure'],statuses:responses};
+  const output={passed:true,pageviewsExpected:3,dailyUniquesExpected:2,
+    checks:['mobile layout','reload identity','concurrent duplicate','invalid payload','no stop button','analytics network failure'],statuses:responses};
   fs.writeFileSync('/workspace/scratch/8acc6a67f3c6/mrs-analytics/test/preview-result.json',JSON.stringify(output,null,2));
   console.log(JSON.stringify(output));await browser.close();
 })().catch(e=>{console.error(e);process.exit(1);});
