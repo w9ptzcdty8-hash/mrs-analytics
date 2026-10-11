@@ -1,0 +1,13 @@
+{
+  "$schema":"node_modules/wrangler/config-schema.json",
+  "name":"mrs-analytics-admin",
+  "main":"admin/.build/worker.mjs",
+  "build":{"command":"npm run build:admin"},
+  "compatibility_date":"2026-10-11",
+  "compatibility_flags":["nodejs_compat"],
+  "workers_dev":true,
+  "preview_urls":false,
+  "observability":{"enabled":false},
+  "vars":{"POLICY_AUD":"3dd880c098da1ee5e75c8f6842c253c2a86d2fb081a17fa9b74a51f5020cb9c5","MEASURED_SINCE":"2026-10-11"},
+  "d1_databases":[{"binding":"DB","database_name":"mrs-analytics-production","database_id":"39f5c8c5-de11-40af-ae0e-4a47182f06e4"}]
+}
