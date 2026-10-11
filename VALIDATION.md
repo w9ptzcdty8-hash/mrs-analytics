@@ -4,7 +4,7 @@
 
 - 7 Node/SQLite tests: pageview and daily unique aggregation, duplicate event, missing daily ID, source isolation, malformed/stale payload, quota, retention, JST midnight, browser-code offline and localStorage failure paths.
 - Live Cloudflare browser: load then reload of TOOLS preview -> D1 shows 2 pageviews and 1 daily unique.
-- Stop button: state retained across reload, D1 counts unchanged.
+- Previous stop-button check has been superseded: visitor opt-out UI and its client logic were removed on 2026-10-11.
 - D1 read from ChatGPT: works for new preview and production databases. Production daily_stats is empty.
 - Both Pages previews deployed successfully. Production Worker collection returns 503 while disabled.
 
@@ -12,7 +12,7 @@
 
 ## Not verified
 
-- iPhone/Safari physical device and mobile viewport layout.
+- iPhone/Safari verification of the updated preview after removing the stop button (the previous preview was confirmed by the user).
 - Live hourly Cron execution and expiry after 30 days (the cleanup code was verified locally).
 - Production collection, pending explicit merge/activation approval.
 - Account plan and total existing quota usage (subscription read lacks permission).

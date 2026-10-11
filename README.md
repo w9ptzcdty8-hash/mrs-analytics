@@ -19,7 +19,7 @@ Cloudflare Workers + D1による小規模アクセス解析。現時点の対象
 - Page new load/reload only. No resume, clicks, duration, offline queue or retry.
 - The browser sends site_id, random event_id, JST day, daily random visitor_id or null.
 - LocalStorage key: mrs.analytics.daily.tools-home. A new JST day replaces the identifier on next load.
-- Opt out: mrs.analytics.disabled=true. Button changes only custom analytics, not Web Analytics/ads.
+- No visitor opt-out UI. The policy discloses transmitted fields, recipients, purpose and retention. Only the daily identifier is stored by the client.
 - No raw IP, IP hash, UA, referrer, query string, device info, country, PWA mode or tool content in D1.
 - Cloudflare may process network metadata independently. Persisted Worker observability is disabled.
 - Daily unique = per site/browser storage/day approximation, never cross-site people or monthly people.
@@ -57,4 +57,4 @@ Only tools-home is registered. Apps not yet instrumented are unavailable, not ze
 4. Enable production Worker ENABLED=true, keeping production MODE and DB unchanged. Save that setting in wrangler.jsonc as well.
 5. Verify production collection and SELECT. No expansion to other tools in this phase.
 
-Emergency stop: set Worker ENABLED=false or remove the analytics script tag. UI stop works per browser/site. Existing app data remains intact. Do not delete D1 as a rollback.
+Emergency stop: set Worker ENABLED=false or remove the analytics script tag. Existing app data remains intact. Do not delete D1 as a rollback.
