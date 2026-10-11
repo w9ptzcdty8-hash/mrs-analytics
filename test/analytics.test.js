@@ -6,7 +6,7 @@ import vm from 'node:vm';
 import worker, {jstDay,cleanup} from '../src/worker.js';
 const schema = readFileSync(new URL('../migrations/0001_initial.sql',import.meta.url),'utf8');
 function environment() {
-  const db=new DatabaseSync(':memory:'); db.exec(schema);
+  const db=new DatabaseSync(':memory:'); db.exec(schema); db.exec(readFileSync(new URL('../migrations/0002_home_sites.sql',import.meta.url),'utf8'));
   const wrap=(sql,params=[])=>({
     bind(...p){return wrap(sql,p);},
     async run(){const before=db.prepare('SELECT total_changes() AS n').get().n;
@@ -56,10 +56,10 @@ test('JST midnight boundary is independent of UTC day',()=>{
   assert.equal(jstDay(Date.parse('2026-10-10T15:00:00Z')),'2026-10-11');
 });
 const client=readFileSync(new URL('../client/analytics.js',import.meta.url),'utf8');
-function browser({storage=new Map(),offline=false,blocked=false}={}) {
+function browser({storage=new Map(),offline=false,blocked=false,site='tools-home',host='mrs-tools.pages.dev',path='/'}={}) {
   const pending=[];const calls=[];const handlers={};
   const localStorage={getItem(k){if(blocked)throw Error('denied');return storage.get(k)||null;},setItem(k,v){if(blocked)throw Error('denied');storage.set(k,v);},removeItem(k){storage.delete(k);}};
-  const ctx={document:{currentScript:{dataset:{siteId:'tools-home'}},getElementById(){return null;},visibilityState:'visible',addEventListener(k,v){handlers[k]=v;}},location:{origin:'https://mrs-tools.pages.dev',hostname:'mrs-tools.pages.dev',pathname:'/'},navigator:{onLine:!offline},localStorage,crypto,Date,JSON,AbortController,setTimeout(fn,ms){if(ms===0)pending.push(fn);return 1;},clearTimeout(){},async fetch(url,options){calls.push({url,options});throw Error('network');}};
+  const ctx={document:{currentScript:{dataset:{siteId:site}},getElementById(){return null;},visibilityState:'visible',addEventListener(k,v){handlers[k]=v;}},location:{origin:'https://'+host,hostname:host,pathname:path},navigator:{onLine:!offline},localStorage,crypto,Date,JSON,AbortController,setTimeout(fn,ms){if(ms===0)pending.push(fn);return 1;},clearTimeout(){},async fetch(url,options){calls.push({url,options});throw Error('network');}};
   vm.runInNewContext(client,ctx);return {calls,handlers,ctx,async flush(){for(const fn of pending.splice(0))fn();await new Promise(r=>setImmediate(r));}};
 }
 test('client reuses day ID but new event per load; resume sends nothing extra',async()=>{
@@ -72,4 +72,27 @@ test('client reuses day ID but new event per load; resume sends nothing extra',a
 test('offline sends nothing; blocked storage counts without identity',async()=>{
   const offline=browser({offline:true});await offline.flush();assert.equal(offline.calls.length,0);
   const b=browser({blocked:true});await b.flush();assert.equal(JSON.parse(b.calls[0].options.body).visitor_id,null);
+});
+
+test('three homes have origin/site isolation and independent daily caps and uniques',async()=>{
+ const {db,env}=environment();db.exec("UPDATE sites SET enabled=1,measured_since='2026-10-11';");env.DAILY_CAP='1';
+ const id=crypto.randomUUID();
+ for(const [site,host] of [['tools-home','mrs-tools'],['works-home','mrs-works'],['games-home','mrs-games']]) {
+  const p={...payload(id),site_id:site};
+  assert.equal((await worker.fetch(request(p,'https://branch.'+host+'.pages.dev'),env)).status,204);
+  assert.equal((await worker.fetch(request({...p,event_id:crypto.randomUUID()},'https://branch.'+host+'.pages.dev'),env)).status,429);
+  assert.equal((await worker.fetch(request({...p,site_id:site==='tools-home'?'works-home':'tools-home'},'https://branch.'+host+'.pages.dev'),env)).status,400);
+  assert.equal((await worker.fetch(request({...p,event_id:crypto.randomUUID()},'https://'+host+'.pages.dev'),env)).status,403);
+  assert.equal((await worker.fetch(request(p,'https://'+host+'.pages.dev'),{...env,MODE:'production'})).status,204);
+ }
+ assert.equal(db.prepare('SELECT SUM(pageviews) AS n FROM daily_stats').get().n,3);
+ assert.equal(db.prepare('SELECT SUM(unique_visitors) AS n FROM daily_stats').get().n,3);
+ assert.equal((await worker.fetch(request(payload(),'https://evil.mrs-games.pages.dev.evil.example'),env)).status,403);
+});
+test('common client measures only its matching home and selects isolated preview endpoint',async()=>{
+ for(const [site,host] of [['tools-home','mrs-tools.pages.dev'],['works-home','mrs-works.pages.dev'],['games-home','mrs-games.pages.dev']]) {
+  const a=browser({site,host});await a.flush();assert.equal(a.calls.length,1);assert.equal(JSON.parse(a.calls[0].options.body).site_id,site);assert.ok(a.calls[0].url.includes('mrs-analytics.mrsworkspjt'));
+  const b=browser({site,host:'branch.'+host});await b.flush();assert.ok(b.calls[0].url.includes('mrs-analytics-preview.'));
+  for(const options of [{site,host,path:'/privacy'},{site,host,path:'/game/'},{site,host:host+'.evil.test'},{site,host:'mrs-tools.pages.dev',...(site==='tools-home'?{site:'works-home'}:{})}]) {const c=browser(options);await c.flush();assert.equal(c.calls.length,0);}
+ }
 });

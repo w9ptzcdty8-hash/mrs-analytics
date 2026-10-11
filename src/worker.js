@@ -3,14 +3,17 @@ const MAX_BYTES = 512;
 export function jstDay(time) {
   return new Date(time + 9 * 3600000).toISOString().slice(0, 10);
 }
-function allowedOrigin(origin, env) {
-  if (env.MODE === 'production') return origin === 'https://mrs-tools.pages.dev';
-  // Isolated preview worker/DB: only this project's deployment hosts, never production.
+const SITE_HOSTS = {'tools-home':'mrs-tools.pages.dev','works-home':'mrs-works.pages.dev','games-home':'mrs-games.pages.dev'};
+function originSite(origin, env) {
   try {
     const u = new URL(origin);
-    return u.origin === origin && u.protocol === 'https:' &&
-      /^[a-z0-9-]+\.mrs-tools\.pages\.dev$/.test(u.hostname);
-  } catch { return false; }
+    if (u.origin !== origin || u.protocol !== 'https:') return null;
+    for (const [site, host] of Object.entries(SITE_HOSTS)) {
+      if (env.MODE === 'production' && u.hostname === host) return site;
+      if (env.MODE === 'preview' && u.hostname.endsWith('.' + host) && /^[a-z0-9-]+$/.test(u.hostname.slice(0,-host.length-1))) return site;
+    }
+  } catch {}
+  return null;
 }
 function reply(status, origin, text = '') {
   return new Response(status === 204 ? null : text, {
@@ -44,7 +47,7 @@ async function smallJson(request) {
 export async function cleanup(env, time) {
   const cutoff = Math.floor(time / 1000) - 30 * 86400;
   const oldDay = jstDay(time - 1096 * 86400000);
-  // Hourly, bounded work. 6,000 events/day capacity vs a 1,000/day pilot cap.
+  // Hourly, bounded work. 6,000 events/day capacity vs three sites capped at 1,000/day each.
   await env.DB.batch([
     env.DB.prepare('DELETE FROM access_events WHERE event_id IN (SELECT event_id FROM access_events WHERE received_at < ? ORDER BY received_at LIMIT 250)').bind(cutoff),
     env.DB.prepare('DELETE FROM daily_stats WHERE rowid IN (SELECT rowid FROM daily_stats WHERE day_jst < ? ORDER BY day_jst LIMIT 100)').bind(oldDay)
@@ -58,7 +61,8 @@ export default {
     }
     if (url.pathname !== '/v1/collect' || url.search) return new Response(null, {status:404});
     const origin = request.headers.get('Origin') || '';
-    if (!allowedOrigin(origin, env)) return new Response(null, {status:403});
+    const site = originSite(origin, env);
+    if (!site) return new Response(null, {status:403});
     if (request.method === 'OPTIONS') return reply(204, origin);
     if (request.method !== 'POST') return reply(405, origin);
     if (env.ENABLED !== 'true') return reply(503, origin);
@@ -69,7 +73,7 @@ export default {
     try { payload = await smallJson(request); } catch { return reply(400, origin); }
     if (!payload || Array.isArray(payload) || typeof payload !== 'object' ||
       Object.keys(payload).some(k => !['site_id','event_id','visitor_id','day_jst'].includes(k)) ||
-      payload.site_id !== 'tools-home' || !UUID.test(payload.event_id || '') ||
+      payload.site_id !== site || !UUID.test(payload.event_id || '') ||
       !(payload.visitor_id === null || UUID.test(payload.visitor_id || ''))) return reply(400, origin);
     const now = Date.now(); const day = jstDay(now);
     if (payload.day_jst !== day) return reply(409, origin, 'day_changed');
