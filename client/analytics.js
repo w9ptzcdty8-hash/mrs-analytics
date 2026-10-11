@@ -4,9 +4,11 @@
   if (!script) return;
   const site = script.dataset.siteId;
   const key = 'mrs.analytics.daily.' + site;
-  const production = location.origin === 'https://mrs-tools.pages.dev';
-  const preview = /^[a-z0-9-]+\.mrs-tools\.pages\.dev$/.test(location.hostname);
-  if (site !== 'tools-home' || !['/','/index.html'].includes(location.pathname) || (!production && !preview)) return;
+  const host = {'tools-home':'mrs-tools.pages.dev','works-home':'mrs-works.pages.dev','games-home':'mrs-games.pages.dev'}[site];
+  if (!host) return;
+  const production = location.origin === 'https://' + host;
+  const preview = location.hostname.endsWith('.' + host) && /^[a-z0-9-]+$/.test(location.hostname.slice(0,-host.length-1));
+  if (!['/','/index.html'].includes(location.pathname) || (!production && !preview)) return;
   const endpoint = production
     ? 'https://mrs-analytics.mrsworkspjt.workers.dev/v1/collect'
     : 'https://mrs-analytics-preview.mrsworkspjt.workers.dev/v1/collect';

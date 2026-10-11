@@ -33,3 +33,16 @@ Raw test visits reside only in the preview DB and will age out. They are not pro
 - Source is submitted as a review branch/draft PR; main is not merged automatically. GitHub automatic deployment remains unconfigured.
 
 Earlier Phase 2 production-pending notes above describe the pre-activation checkpoint. Production collection has since been approved, merged and enabled; the initial production verification added one test pageview on 2026-10-11.
+
+
+## Three-home rollout preview — 2026-10-11 JST
+
+- Common Worker/client supports exact site-to-host pairs for TOOLS, WORKS and GAMES homes; nested apps and policy pages are excluded by client path checks.
+- 15 tests passed, including independent per-site caps/uniques, cross-site payload rejection, matching production/preview hosts, offline/storage failure, JWT protection, and per-site measurement start dates.
+- Migration 0002 adds sites.measured_since and registers WORKS/GAMES as disabled until separate activation. Only preview D1 has received it during review; production D1, collector, admin and TOOLS page are unchanged.
+- WORKS preview https://32e4b885.mrs-works.pages.dev/ deployed from 0d694e9c1fa975e690ddeb383791b8cf389d7625. Cloud browser first load + reload recorded 2 pageviews and 1 daily unique in preview D1 for works-home. Existing visible links/content remained available.
+- Maximum three-home accepted events: 3,000/day; existing bounded cleanup capacity 6,000/day. Other account quota usage is still not established; no guarantee is made for abusive request loads.
+- Production release must use the actual JST activation date per site. Keep new sites disabled before Pages release and verify each independently; no fabricated backfill.
+- Physical iPhone/Safari verification and production release remain pending owner preview review/merge instruction. Automated local rendered-browser checks unavailable; cloud-browser checks are recorded separately.
+
+- GAMES preview https://eb69c5aa.mrs-games.pages.dev/ deployed from c28d0294335105da2088557f074e14e28794349d. Cloud browser first load + reload recorded 2 pageviews and 1 daily unique in preview D1 for games-home. Existing game links/content remained available.

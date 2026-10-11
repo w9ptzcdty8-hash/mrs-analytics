@@ -14,6 +14,7 @@ async function token(overrides={},expires='1h',algorithm='RS256') {
 }
 function database() {
   const db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../migrations/0001_initial.sql',import.meta.url),'utf8'));
+  db.exec(readFileSync(new URL('../migrations/0002_home_sites.sql',import.meta.url),'utf8'));
   const queries=[];
   const wrap=(sql,params=[])=>({bind(...p){return wrap(sql,p);},async all(){queries.push(sql);assert.match(sql,/^SELECT /);return {success:true,results:db.prepare(sql).all(...params)};}});
   return {db,queries,env:{...authEnv,DB:{prepare:wrap,async batch(s){return Promise.all(s.map(x=>x.all()));}}}};
@@ -63,4 +64,13 @@ test('authenticated handler serves protected assets, rejects writes and handles 
   assert.equal((await handler.fetch(req('/api/report?site=missing'),env)).status,404);
   const broken={...env,DB:{prepare(){throw Error('sensitive-db-message');}}};const r=await handler.fetch(req('/api/report'),broken);assert.equal(r.status,503);assert.ok(!(await r.text()).includes('sensitive-db-message'));
   assert.equal((await handler.fetch(req('/unknown'),env)).status,404);
+});
+
+test('later site start dates stay unmeasured; disabled sites remain absent',async()=>{
+ const {db,env}=database();db.exec("UPDATE sites SET enabled=1,measured_since='2026-10-13' WHERE site_id='works-home';");
+ const time=Date.parse('2026-10-13T03:00:00Z');
+ const works=await report(env,new URLSearchParams('start=2026-10-11&end=2026-10-13&site=works-home'),time);
+ assert.deepEqual(works.daily.map(d=>d.pageviews),[null,null,0]);assert.equal(works.yesterday.pageviews,null);assert.equal(works.measured_since,'2026-10-13');
+ assert.equal(works.sites.length,2);assert.ok(!works.sites.some(s=>s.site_id==='games-home'));
+ const all=await report(env,new URLSearchParams('start=2026-10-10&end=2026-10-13'),time);assert.equal(all.measured_since,'2026-10-11');assert.equal(all.daily[0].pageviews,null);
 });

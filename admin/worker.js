@@ -42,7 +42,7 @@ export async function verifyToken(token, env, jwks=keys) {
 export async function report(env, params, time=Date.now()) {
   const today=jstDay(time), yesterday=jstDay(time-DAY);
   const {start,end,site}=range(params,today);
-  const sites=await env.DB.prepare('SELECT site_id,service,name,kind FROM sites WHERE enabled=1 ORDER BY service,name LIMIT 501').all();
+  const sites=await env.DB.prepare('SELECT site_id,service,name,kind,measured_since FROM sites WHERE enabled=1 AND measured_since IS NOT NULL ORDER BY service,name LIMIT 501').all();
   if (sites.results.length>500) throw Error('too_many_sites');
   if (site && !sites.results.some(s=>s.site_id===site)) return {error:'対象サイトが見つかりません。',status:404};
   const filter=site?' AND d.site_id=?':'';
@@ -54,13 +54,13 @@ export async function report(env, params, time=Date.now()) {
     bind(`SELECT d.site_id,s.name,s.service,${sums} FROM daily_stats d JOIN sites s ON s.site_id=d.site_id WHERE s.enabled=1 AND d.day_jst BETWEEN ? AND ?${filter} GROUP BY d.site_id,s.name,s.service ORDER BY pageviews DESC,d.site_id LIMIT 500`,start,end)
   ]);
   const recorded=new Map(days.results.map(d=>[d.day_jst,d]));
-  const since=env.MEASURED_SINCE;
+  const since=site ? sites.results.find(s=>s.site_id===site).measured_since : sites.results.map(s=>s.measured_since).sort()[0];
   const daily=[];
   for(let t=dateTime(start);t<=dateTime(end);t+=DAY) {
     const day=new Date(t).toISOString().slice(0,10);
-    daily.push(recorded.get(day) || {day_jst:day,pageviews:day<since?null:0,unique_visitors:day<since?null:0,unclassified_pageviews:day<since?null:0});
+    daily.push(recorded.get(day) || {day_jst:day,pageviews:(!since || day<since)?null:0,unique_visitors:(!since || day<since)?null:0,unclassified_pageviews:(!since || day<since)?null:0});
   }
-  const lookup=day=>cards.results.find(d=>d.day_jst===day) || {day_jst:day,pageviews:day<since?null:0,unique_visitors:day<since?null:0,unclassified_pageviews:day<since?null:0};
+  const lookup=day=>cards.results.find(d=>d.day_jst===day) || {day_jst:day,pageviews:(!since || day<since)?null:0,unique_visitors:(!since || day<since)?null:0,unclassified_pageviews:(!since || day<since)?null:0};
   const total=daily.reduce((a,d)=>({pageviews:a.pageviews+(d.pageviews || 0),daily_unique_sum:a.daily_unique_sum+(d.unique_visitors || 0),unclassified_pageviews:a.unclassified_pageviews+(d.unclassified_pageviews || 0)}),{pageviews:0,daily_unique_sum:0,unclassified_pageviews:0});
   return {timezone:'Asia/Tokyo',generated_at:new Date(time).toISOString(),measured_since:since,today:lookup(today),yesterday:lookup(yesterday),start,end,site,sites:sites.results,daily,total,ranking:ranking.results};
 }

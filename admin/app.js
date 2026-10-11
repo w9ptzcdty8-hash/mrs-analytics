@@ -26,6 +26,7 @@
   }
   function row(values) {const tr=document.createElement('tr');values.forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.append(td);});return tr;}
   function render(data) {
+    $('measurement').textContent='集計は日本時間です。計測開始：'+data.sites.map(s=>s.name+' '+s.measured_since).join('／')+'。開始前は未計測です。全体集計は各サイトの計測開始後の記録を合計します。';
     $('today-pv').textContent=format(data.today.pageviews);$('today-uv').textContent='日別ユニーク相当 '+format(data.today.unique_visitors);
     $('yesterday-pv').textContent=format(data.yesterday.pageviews);$('yesterday-uv').textContent='日別ユニーク相当 '+format(data.yesterday.unique_visitors);
     $('period-pv').textContent=format(data.total.pageviews);$('period-uv').textContent=format(data.total.daily_unique_sum);
