@@ -4,7 +4,7 @@ Cloudflare Workers + D1による小規模アクセス解析。現時点の対象
 
 ## Deployed resources
 
-- Production Worker: https://mrs-analytics.mrsworkspjt.workers.dev (collection disabled pending approval)
+- Production Worker: https://mrs-analytics.mrsworkspjt.workers.dev (collection enabled: TOOLS home only)
 - Preview Worker: https://mrs-analytics-preview.mrsworkspjt.workers.dev
 - Production D1: mrs-analytics-production / 39f5c8c5-de11-40af-ae0e-4a47182f06e4
 - Preview D1: mrs-analytics-preview / 9fe49965-1e44-462a-8e72-2bdddc993938
