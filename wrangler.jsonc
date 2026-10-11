@@ -7,7 +7,7 @@
   "workers_dev": true,
   "preview_urls": false,
   "observability": {"enabled": false},
-  "vars": {"MODE":"production", "ENABLED":"false", "DAILY_CAP":"1000"},
+  "vars": {"MODE":"production", "ENABLED":"true", "DAILY_CAP":"1000"},
   "d1_databases": [{"binding":"DB", "database_name":"mrs-analytics-production", "database_id":"39f5c8c5-de11-40af-ae0e-4a47182f06e4"}],
   "triggers": {"crons":["17 * * * *"]},
   "env": {
