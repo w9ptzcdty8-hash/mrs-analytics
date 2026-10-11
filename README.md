@@ -58,3 +58,18 @@ Only tools-home is registered. Apps not yet instrumented are unavailable, not ze
 5. Verify production collection and SELECT. No expansion to other tools in this phase.
 
 Emergency stop: set Worker ENABLED=false or remove the analytics script tag. Existing app data remains intact. Do not delete D1 as a rollback.
+
+## Admin dashboard
+
+URL: https://mrs-analytics-admin.mrsworkspjt.workers.dev/
+The dashboard Worker is separate from the collection Worker and reads existing production daily_stats through the D1 binding. It has no collection, update or arbitrary SQL endpoint. The account owner must review the feature branch before merging.
+
+Cloudflare Access protects the whole hostname with a single-email Allow policy and an explicitly configured one-time PIN identity provider. The Worker also verifies RS256 JWT signatures, issuer, audience, expiry and the allowed email. Configure ADMIN_EMAIL as a Worker secret; never add it to browser files or commit a login credential. Tokens and identity are not logged. Preview URLs are disabled. No public analytics endpoints or administrative write endpoints are added to the collection Worker.
+
+`npm ci` and `npm run build:admin` build HTML/CSS/browser JS into the management Worker through esbuild. `npm test` builds then runs aggregation and authentication tests on Node 24+. The bundle is generated in admin/.build and excluded from Git. No browser CDN dependencies, Service Worker, analytics beacon, ads or offline data cache are used in the admin page.
+
+`wrangler.admin.jsonc` is the management Worker config, not the collection Worker config. Use it only for management deployments and preserve the ADMIN_EMAIL secret. The initial deployment is performed through the Cloudflare API, not GitHub automatic deployment.
+
+The screen displays today's and yesterday's counts, 7/30-day or custom daily trends, and per-site totals. Dates use JST. Dates before the pilot started (2026-10-11) show as unmeasured. A custom period is limited to 366 days and retained dates. Summed daily/site unique counts are not distinct people over a period. The initial production check contributed one access on 2026-10-11. Later site rollout requires revisiting per-site measurement start dates.
+
+Rollback: disable only the admin Worker's workers.dev subdomain. Leave Access enabled until the management endpoint is disabled; do not touch the collection Worker or delete D1.

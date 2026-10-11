@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#121212">
+  <title>MRS Analytics</title><link rel="stylesheet" href="/styles.css"><script defer src="/app.js"></script>
+</head>
+<body><main>
+  <header><div><p class="eyebrow">MRS WORKS · 管理者専用</p><h1>MRS Analytics</h1><p class="muted">アクセス状況</p></div><a class="logout" href="/cdn-cgi/access/logout">ログアウト</a></header>
+  <p class="notice">現在の計測対象はMRS TOOLSトップのみです。集計は日本時間、計測開始は2026年10月11日です。</p>
+  <section class="cards" aria-label="今日と昨日の集計">
+    <article><h2>今日のアクセス</h2><p class="number" id="today-pv">—</p><p class="muted" id="today-uv">日別ユニーク相当 —</p></article>
+    <article><h2>昨日のアクセス</h2><p class="number" id="yesterday-pv">—</p><p class="muted" id="yesterday-uv">日別ユニーク相当 —</p></article>
+  </section>
+  <section class="panel"><h2>期間別の集計</h2>
+    <div class="presets" aria-label="期間の選択"><button type="button" data-days="7" aria-pressed="true">7日間</button><button type="button" data-days="30" aria-pressed="false">30日間</button></div>
+    <form id="filters"><div class="date-fields"><label>開始日<input type="date" id="start" required></label><label>終了日<input type="date" id="end" required></label></div><label>対象<select id="site"><option value="">計測対象すべて</option></select></label><button type="submit" id="refresh">集計を表示</button></form>
+    <p id="status" role="status" aria-live="polite">読み込み中…</p><p id="relogin" hidden><a href="/">再ログインする</a></p>
+    <div id="results" hidden>
+      <div class="totals"><p>アクセス数<strong id="period-pv">—</strong></p><p>日別ユニーク相当の合計<strong id="period-uv">—</strong></p></div>
+      <p class="muted" id="period-label"></p>
+      <h3>日別アクセス数の推移</h3><div id="chart" class="chart"></div>
+      <p class="muted">日別ユニーク相当はサイト・ブラウザ・日ごとの目安です。期間内の人数ではありません。</p>
+      <details><summary>日別の数値を見る</summary><div class="table-wrap"><table><thead><tr><th scope="col">日付</th><th scope="col">アクセス</th><th scope="col">ユニーク相当</th></tr></thead><tbody id="daily"></tbody></table></div></details>
+      <h3>対象別のアクセス数</h3><div class="table-wrap"><table><thead><tr><th scope="col">対象</th><th scope="col">アクセス</th></tr></thead><tbody id="ranking"></tbody></table></div>
+      <p class="muted" id="unclassified"></p>
+    </div>
+  </section>
+  <footer><p>オフラインでは最新の集計を取得できません。計測には通信失敗や広告ブロックなどによる欠測があります。初期設定の記録上限は1日1,000アクセスです。</p><p>10月11日の集計には動作確認用の1アクセスを含みます。</p></footer>
+</main></body></html>
