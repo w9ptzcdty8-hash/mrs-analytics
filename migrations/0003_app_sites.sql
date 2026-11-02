@@ -2,7 +2,13 @@
 -- Apply to a BACKED-UP PREVIEW DB and validate before touching production.
 -- D1 migrations use a transaction. Defer FK enforcement during the table rebuild.
 -- Recreate the linked tables so existing foreign keys refer to the new sites table.
-PRAGMA defer_foreign_keys = ON;
+-- Stage historical rows before dropping FK-dependent tables.
+-- Use ordinary staging tables so the migration works inside a D1 transaction.
+CREATE TABLE migration_events_backup AS SELECT * FROM access_events;
+CREATE TABLE migration_stats_backup AS SELECT * FROM daily_stats;
+
+DROP TABLE access_events;
+DROP TABLE daily_stats;
 
 CREATE TABLE sites_new (
  site_id TEXT PRIMARY KEY,
@@ -12,14 +18,20 @@ CREATE TABLE sites_new (
  enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1)),
  measured_since TEXT
 );
-CREATE TABLE access_events_new (
+INSERT INTO sites_new SELECT site_id,service,name,kind,enabled,measured_since FROM sites;
+DROP TABLE sites;
+ALTER TABLE sites_new RENAME TO sites;
+
+CREATE TABLE access_events (
  event_id TEXT PRIMARY KEY,
  site_id TEXT NOT NULL REFERENCES sites(site_id),
  received_at INTEGER NOT NULL,
  day_jst TEXT NOT NULL,
  visitor_id TEXT
 );
-CREATE TABLE daily_stats_new (
+CREATE INDEX events_unique_lookup ON access_events(site_id,day_jst,visitor_id);
+CREATE INDEX events_retention ON access_events(received_at);
+CREATE TABLE daily_stats (
  day_jst TEXT NOT NULL,
  site_id TEXT NOT NULL REFERENCES sites(site_id),
  pageviews INTEGER NOT NULL DEFAULT 0,
@@ -27,18 +39,11 @@ CREATE TABLE daily_stats_new (
  unclassified_pageviews INTEGER NOT NULL DEFAULT 0,
  PRIMARY KEY(day_jst,site_id)
 );
-INSERT INTO sites_new SELECT site_id,service,name,kind,enabled,measured_since FROM sites;
-INSERT INTO access_events_new SELECT event_id,site_id,received_at,day_jst,visitor_id FROM access_events;
-INSERT INTO daily_stats_new SELECT day_jst,site_id,pageviews,unique_visitors,unclassified_pageviews FROM daily_stats;
+INSERT INTO access_events SELECT * FROM migration_events_backup;
+INSERT INTO daily_stats SELECT * FROM migration_stats_backup;
+DROP TABLE migration_events_backup;
+DROP TABLE migration_stats_backup;
 
-DROP TABLE access_events;
-DROP TABLE daily_stats;
-DROP TABLE sites;
-ALTER TABLE sites_new RENAME TO sites;
-ALTER TABLE access_events_new RENAME TO access_events;
-ALTER TABLE daily_stats_new RENAME TO daily_stats;
-CREATE INDEX events_unique_lookup ON access_events(site_id,day_jst,visitor_id);
-CREATE INDEX events_retention ON access_events(received_at);
 CREATE TRIGGER aggregate_access AFTER INSERT ON access_events BEGIN
  INSERT INTO daily_stats(day_jst,site_id,pageviews,unique_visitors,unclassified_pageviews)
  VALUES (NEW.day_jst,NEW.site_id,1,
