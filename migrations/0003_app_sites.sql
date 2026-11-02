@@ -1,7 +1,7 @@
 -- Migration 0003: add KIDS service and register known app sites.
 -- Apply to a BACKED-UP PREVIEW DB and validate before touching production.
--- D1 migrations use a transaction. Defer FK enforcement during the table rebuild.
--- Recreate the linked tables so existing foreign keys refer to the new sites table.
+-- D1 migrations run transactionally. Drop dependent child tables first, then rebuild.
+-- Preserve source rows in temporary staging tables during the schema migration.
 -- Stage historical rows before dropping FK-dependent tables.
 -- Use ordinary staging tables so the migration works inside a D1 transaction.
 CREATE TABLE migration_events_backup AS SELECT * FROM access_events;
