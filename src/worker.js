@@ -3,7 +3,25 @@ const MAX_BYTES = 512;
 export function jstDay(time) {
   return new Date(time + 9 * 3600000).toISOString().slice(0, 10);
 }
-const SITE_HOSTS = {'tools-home':'mrs-tools.pages.dev','works-home':'mrs-works.pages.dev','games-home':'mrs-games.pages.dev'};
+const SITE_HOSTS = {
+  "tools-home": "mrs-tools.pages.dev",
+  "works-home": "mrs-works.pages.dev",
+  "games-home": "mrs-games.pages.dev",
+  "kids-home": "kids-home-eh3.pages.dev",
+  "dice-and-coin": "dice-and-coin.pages.dev",
+  "garagara-pon": "garagara-pon.pages.dev",
+  "photo-memo": "photo-memo-epu.pages.dev",
+  "metronome": "metronome-57i.pages.dev",
+  "visual-timer": "visual-timer-epe.pages.dev",
+  "jan-code-reader": "jan-code-reader.pages.dev",
+  "whistle-master": "whistle-master.pages.dev",
+  "honki-janken": "honki-janken.pages.dev",
+  "jigsaw-puzzle": "jigsaw-puzzle-82i.pages.dev",
+  "abc-balloons": "abc-balloons.pages.dev",
+  "yubisaki-hanabi": "yubisaki-hanabi.pages.dev",
+  "oto-no-button": "oto-no-button.pages.dev",
+  "sawatte-english": "sawatte-english.pages.dev"
+};
 function originSite(origin, env) {
   try {
     const u = new URL(origin);
