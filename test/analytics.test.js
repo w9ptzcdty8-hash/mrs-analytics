@@ -96,3 +96,31 @@ test('common client measures only its matching home and selects isolated preview
   for(const options of [{site,host,path:'/privacy'},{site,host,path:'/game/'},{site,host:host+'.evil.test'},{site,host:'mrs-tools.pages.dev',...(site==='tools-home'?{site:'works-home'}:{})}]) {const c=browser(options);await c.flush();assert.equal(c.calls.length,0);}
  }
 });
+
+test('migration 0003 keeps historic events and aggregates while enabling KIDS schema',()=>{
+ const db=new DatabaseSync(':memory:');
+ db.exec(schema);
+ db.exec(readFileSync(new URL('../migrations/0002_home_sites.sql',import.meta.url),'utf8'));
+ db.exec("INSERT INTO access_events(event_id,site_id,received_at,day_jst,visitor_id) VALUES ('e1','tools-home',1,'2026-10-11','v1')");
+ const before=db.prepare("SELECT * FROM daily_stats WHERE site_id='tools-home'").get();
+ db.exec(readFileSync(new URL('../migrations/0003_app_sites.sql',import.meta.url),'utf8'));
+ const after=db.prepare("SELECT * FROM daily_stats WHERE site_id='tools-home'").get();
+ assert.deepEqual(after,before);
+ assert.equal(db.prepare("SELECT COUNT(*) AS n FROM access_events").get().n,1);
+ assert.equal(db.prepare("SELECT COUNT(*) AS n FROM pragma_foreign_key_check").get().n,0);
+ assert.equal(db.prepare("SELECT enabled FROM sites WHERE site_id='kids-home'").get().enabled,0);
+ assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sites WHERE service='KIDS'").get().n,5);
+ db.exec("INSERT INTO access_events(event_id,site_id,received_at,day_jst,visitor_id) VALUES ('e2','kids-home',2,'2026-10-11','v2')");
+ assert.equal(db.prepare("SELECT pageviews FROM daily_stats WHERE site_id='kids-home'").get().pageviews,1);
+});
+test('allowlisted app origin/site mapping stays isolated',async()=>{
+ const {db,env}=environment();
+ db.exec(readFileSync(new URL('../migrations/0003_app_sites.sql',import.meta.url),'utf8'));
+ db.exec("UPDATE sites SET enabled=1 WHERE site_id IN ('kids-home','photo-memo')");
+ const kp={...payload(),site_id:'kids-home'};
+ assert.equal((await worker.fetch(request(kp,'https://feature.kids-home-eh3.pages.dev'),env)).status,204);
+ assert.equal((await worker.fetch(request({...kp,event_id:crypto.randomUUID()},'https://feature.photo-memo-epu.pages.dev'),env)).status,400);
+ const pp={...payload(),site_id:'photo-memo'};
+ assert.equal((await worker.fetch(request(pp,'https://feature.photo-memo-epu.pages.dev'),env)).status,204);
+ assert.equal((await worker.fetch(request(pp,'https://feature.evil-abc.pages.dev'),env)).status,403);
+});
