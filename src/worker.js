@@ -65,9 +65,9 @@ async function smallJson(request) {
 export async function cleanup(env, time) {
   const cutoff = Math.floor(time / 1000) - 30 * 86400;
   const oldDay = jstDay(time - 1096 * 86400000);
-  // Hourly, bounded work. 6,000 events/day capacity vs three sites capped at 1,000/day each.
+  // Hourly, bounded work. 18,000 events/day cleanup capacity vs 17 allowlisted sites capped at 1,000/day each.
   await env.DB.batch([
-    env.DB.prepare('DELETE FROM access_events WHERE event_id IN (SELECT event_id FROM access_events WHERE received_at < ? ORDER BY received_at LIMIT 250)').bind(cutoff),
+    env.DB.prepare('DELETE FROM access_events WHERE event_id IN (SELECT event_id FROM access_events WHERE received_at < ? ORDER BY received_at LIMIT 750)').bind(cutoff),
     env.DB.prepare('DELETE FROM daily_stats WHERE rowid IN (SELECT rowid FROM daily_stats WHERE day_jst < ? ORDER BY day_jst LIMIT 100)').bind(oldDay)
   ]);
 }
