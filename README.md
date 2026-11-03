@@ -1,16 +1,16 @@
-# MRS Analytics — Phase 2 pilot
+# MRS Analytics — app-level analytics foundation
 
-Cloudflare Workers + D1による小規模アクセス解析。TOOLSトップは本番稼働中。WORKS/GAMESトップの段階展開はプレビュー検証後のマージ待ちです。
+Cloudflare Workers + D1による小規模アクセス解析。2026-11-03時点で共通Worker・D1の17サイト対応は本番/プレビューとも反映済み。従来のTOOLS/WORKS/GAMESホーム3サイトは本番で有効、新規14サイトは本番では無効です。Photo MemoのみプレビューDBで有効化して1PV/1UUの実測を確認済み。アプリ本番への計測タグ導入は別PR・別承認とします。
 
 ## Deployed resources
 
-- Production Worker: https://mrs-analytics.mrsworkspjt.workers.dev (collection enabled: TOOLS home only)
+- Production Worker: https://mrs-analytics.mrsworkspjt.workers.dev (production: 3 home sites enabled; 14 new sites disabled)
 - Preview Worker: https://mrs-analytics-preview.mrsworkspjt.workers.dev
 - Production D1: mrs-analytics-production / 39f5c8c5-de11-40af-ae0e-4a47182f06e4
 - Preview D1: mrs-analytics-preview / 9fe49965-1e44-462a-8e72-2bdddc993938
-- Preview home: https://feature-mrs-analytics.mrs-tools.pages.dev/
-- Home PR: https://github.com/MRS-TOOLS/TOOLS-home/pull/15
-- Privacy PR: https://github.com/w9ptzcdty8-hash/MRS-WORKS/pull/1
+- Photo Memo pilot preview: https://556e5aef.photo-memo-epu.pages.dev/ (2026-11-03: 1PV/1UU observed in preview D1)
+- Photo Memo integration: https://github.com/MRS-TOOLS/photo-memo/pull/6 (draft; **not merged**)
+- Analytics foundation: https://github.com/w9ptzcdty8-hash/mrs-analytics/pull/5 (draft; cloud resources updated directly ahead of GitHub merge)
 
 ソースコードの管理先は https://github.com/w9ptzcdty8-hash/mrs-analytics です。CloudflareへはAPIで配置済み。GitHubからCloudflareへの自動デプロイ連携は未設定です。
 
@@ -18,7 +18,7 @@ Cloudflare Workers + D1による小規模アクセス解析。TOOLSトップは�
 
 - Page new load/reload only. No resume, clicks, duration, offline queue or retry.
 - The browser sends site_id, random event_id, JST day, daily random visitor_id or null.
-- LocalStorage key: mrs.analytics.daily.<site_id> (currently deployed TOOLS uses tools-home). A new JST day replaces the identifier on next load.
+- LocalStorage key: mrs.analytics.daily.<site_id>. A new JST day replaces the identifier on next load.
 - No visitor opt-out UI. The policy discloses transmitted fields, recipients, purpose and retention. Only the daily identifier is stored by the client.
 - No raw IP, IP hash, UA, referrer, query string, device info, country, PWA mode or tool content in D1.
 - Cloudflare may process network metadata independently. Persisted Worker observability is disabled.
@@ -32,32 +32,30 @@ Cloudflare Workers + D1による小規模アクセス解析。TOOLSトップは�
 
 Three tables: sites, access_events, daily_stats. A trigger in the INSERT transaction handles unique lookup and daily upsert. event_id conflict avoids duplicate increments. Quota check is part of that same statement. Parameter binding only, no public SQL/report endpoint.
 
-Hourly Cron deletes up to 250 events older than 30 days and up to 100 daily rows older than approximately 3 years (1,096 days). Aggregates are retained when events are deleted. Deletion can lag during errors. Daily unique is not recomputed after retention. Closed-day statistics should be read using JST date ranges.
+Hourly Cron deletes up to 750 events older than 30 days and up to 100 daily rows older than approximately 3 years (1,096 days). Aggregates are retained when events are deleted. Deletion can lag during errors. Daily unique is not recomputed after retention. Closed-day statistics should be read using JST date ranges.
 
-Three home sites capped at 1,000/day each fit the existing 6,000/day cleanup capacity. Increase neither the cap nor scope without checking writes, retention capacity, limits, privacy and approval.
+The current 17-site allowlist allows at most 17,000 accepted events/day at cap=1,000/site. Hourly cleanup of up to 750 events provides a nominal 18,000/day deletion capacity; actual limits, retention lag and quota consumption must be monitored before broader activation. Increase neither cap nor scope without reviewing usage, privacy and approval.
 
 ## Test and deploy
 
 Node.js 24+: npm test. Uses built-in node:sqlite, no installed dependencies.
 
-Schema is already applied remotely; do not replay 0001 on existing DBs. New databases use migrations/0001_initial.sql.
+**Existing production and preview D1 databases already had migrations 0001 and 0002; migration 0003 was applied directly through the Cloudflare D1 query API on 2026-11-02 to preview and 2026-11-03 to production (JST). Do not replay 0001, 0002, or 0003 on either existing database.** Their migration-history table (`d1_migrations`) is not present in the production DB; the 0003 API application did not register a Wrangler migration history entry. Do not run `wrangler d1 migrations apply` against these databases without first inspecting and reconciling actual schema/data and migration bookkeeping. To provision an entirely new database, review and apply the migrations in sequence under the appropriate tooling. Keep an out-of-band record of the already-applied migrations.
 wrangler.jsonc contains resource IDs, not secrets. Use a separately authenticated Wrangler CLI if deploying from the dedicated repo. Load current Cloudflare Wrangler instructions first. Generate Worker types and validate the current Wrangler schema when adding that toolchain; this initial plain JS build is deployed through Cloudflare's multipart API.
 
 ## Read from ChatGPT
 
 Use the connected Cloudflare D1 query endpoint with SELECT only. queries/reports.sql provides parameterized examples. Use daily_stats rather than scanning raw events. Do not interpret SUM(unique_visitors) as period-unique people.
 Week: Monday 00:00 to next Monday 00:00 JST; compare equal elapsed periods if this week is incomplete.
-After migration 0002, works-home and games-home are registered but disabled until their separate release. Apps not yet instrumented are unavailable, not zero-use.
+As of 2026-11-03, production has 3 enabled home sites and 14 disabled new sites; disabled/uninstrumented apps are unavailable, not zero-use. Preview additionally enables `photo-memo` for testing.
 
-## Release / rollback
+## Release / rollback (current state)
 
-1. Review both Pages previews and D1 results.
-2. Review the dedicated analytics repository and preserve the deployed source.
-3. On explicit merge approval, merge privacy PR before the home PR.
-4. Enable production Worker ENABLED=true, keeping production MODE and DB unchanged. Save that setting in wrangler.jsonc as well.
-5. Verify production collection and SELECT. No expansion to other tools in this phase.
-
-Emergency stop: set Worker ENABLED=false or remove the analytics script tag. Existing app data remains intact. Do not delete D1 as a rollback.
+- **Completed with explicit approval:** preview D1 0003 schema migration, preview collector deployment, Photo Memo preview pilot verification; production D1 0003 schema migration, production collector deployment. D1 0003 applied as SQL via API, not by a migration runner.
+- **Pre-production counts (2026-11-03):** 3 sites, 110 raw access events, 26 daily aggregate rows. **Post-migration:** 17 sites, 110 raw events, 26 aggregates, empty `PRAGMA foreign_key_check`, aggregate trigger and event indexes present. Existing start dates preserved. A Time Travel bookmark was obtained and an SQL export reported complete before applying 0003 (export file was not locally downloaded).
+- **Pending:** merge PR #5 to align GitHub source with the already deployed foundation; review Photo Memo privacy disclosure, production activation, then independently approve and merge its draft PR #6. Verify production collection before expanding to other apps. Merging PR #5 does not redeploy automatically.
+- **No migration replay:** first compare current schema and the actual D1 resource ID. Do not manually run 0003 again; a second application would collide with existing tables/rows. Do not use `d1_migrations` as evidence of completed migrations on this preexisting DB.
+- Emergency stop: set Worker ENABLED=false or remove the app analytics script tag after explicit approval. Existing app data remains intact. Do not delete D1 as a rollback. Time Travel restoration is destructive, time-limited and requires separate explicit approval.
 
 ## Admin dashboard
 
@@ -75,23 +73,20 @@ The screen displays today's and yesterday's counts, 7/30-day or custom daily tre
 Rollback: disable only the admin Worker's workers.dev subdomain. Leave Access enabled until the management endpoint is disabled; do not touch the collection Worker or delete D1.
 
 
-## WORKS / GAMES home rollout
+## WORKS / GAMES home rollout (historical guidance)
 
-- migrations/0002_home_sites.sql adds nullable sites.measured_since without deleting or rebuilding tables, marks the existing TOOLS start, and registers two disabled homes. Apply once to each DB after checking PRAGMA table_info(sites). Never replay 0001 or 0002 on a migrated DB.
-- Collection accepts exactly matching site/origin pairs for three approved production hosts; preview accepts only each corresponding Pages deployment subdomain. Same-day IDs and caps remain per site. Source Origin is not strong bot authentication.
-- Copy client/analytics.js unchanged to each home as analytics.js and load via defer with data-site-id=works-home or games-home. Only / and /index.html qualify; privacy pages and nested games/tools are excluded. The already deployed TOOLS copy remains compatible.
-- Free-tier impact: maximum accepted events rise from 1,000 to 3,000/day if all three sites are enabled. Existing hourly event deletion can remove 6,000/day. D1 indexed lookup/trigger/read/write and Worker request limits are shared with other account apps; this is a bounded pilot, not a guarantee against traffic spikes or abuse. No new paid service, Worker/D1 database, log destination or Access application is required.
-- Production release order: apply 0002 (new rows disabled); deploy the reviewed collection Worker preserving production MODE/ENABLED/DAILY_CAP, DB, observability and Cron; deploy reviewed admin bundle preserving ADMIN_EMAIL Secret and Access. Merge WORKS PR first, wait for successful production Pages deployment, then activate works-home with its actual JST release date. Verify one documented production check before separately releasing and activating GAMES. Keep new sites disabled if production deployment fails. Delayed activation can miss early visits; disclose this rather than backfill invented counts.
-- Activation example with bound parameters: UPDATE sites SET enabled=1,measured_since=? WHERE site_id=? AND enabled=0. Never overwrite an existing measured_since during re-deployments. Use actual release date, not the PR creation date.
-- Preview uses only preview D1 and preview collection Worker. Production Worker/D1 and live admin are unchanged during initial review. Admin source tests verify per-site start dates; authenticated production rendering follows migration/release.
-- Rollback per site: remove that home's script tag or UPDATE sites SET enabled=0 WHERE site_id=?; retain stored data and measurement start. Keep original schema plus the additive column. The collector may be rolled back independently; old TOOLS-only code ignores new sites.
+- Migration `0002_home_sites.sql` previously added `measured_since` and registered WORKS/GAMES. It is already applied to the current production and preview DBs; do not replay.
+- All three home sites are now enabled in production. Their site/origin separation and day-specific identifiers are preserved in the 17-site collector. `measured_since` remains per site; avoid inventing backfilled counts.
+- App-specific production tracking requires individual approval and an appropriate disclosure. Activate a newly integrated site with `UPDATE sites SET enabled=1,measured_since=? WHERE site_id=? AND enabled=0`, passing the actual JST activation date. A re-deployment must not overwrite a preexisting start date.
+- Preview collection uses only preview Worker and D1; production uses only production Worker and D1. Origin checks limit ordinary browser usage but are not protection against forged HTTP requests.
+- Disable only a problematic site or remove its client script to roll back a single app without touching existing homes or deleting historical data.
 
+## All-app foundation (cloud resources deployed; PR #5 remains draft)
 
-## All-app foundation (PR only; NOT deployed)
-- The collector and shared client now allowlist 17 specifically confirmed production hostnames, including KIDS. Unverified app hostnames are intentionally excluded pending validation.
-- Migration `0003_app_sites.sql` reconstructs the three FK-linked tables in one D1 migration transaction to allow the KIDS service value. Historical aggregates and event records are copied, indexes and aggregate trigger recreated, and all 14 new site rows start disabled. **Backup, check current schema/revision, test on preview, verify row counts and foreign_key_check before any production application. Do not apply 0003 twice.**
-- Existing site IDs and measured_since dates are preserved. New rows must be enabled individually only after the corresponding script has been deployed to the real app. No backfill is assumed.
-- The 17 allowlisted hosts have at most 17,000 accepted events/day at DAILY_CAP=1000 per site; cleanup increases to 750 events/hour (18,000/day nominal). Actual load, write amplification, retention progress, D1/Worker free quotas, and abuse exposure must be monitored prior to production rollout. Cap is not a security control.
-- Existing browser client can be copied into participating apps with the correct `data-site-id` after separate per-app approval. It records only first visible load/reload, not clicks, session duration or offline retries. Preserve the app's normal operation if analytics fails.
-- `src/worker.js`, `client/analytics.js`, `test/analytics.test.js`, and this migration change only the proposed branch. No D1 or Worker settings are modified by this PR. The KIDS privacy disclosure and cross-section rollout require separate review and GO.
-- **Unverified hostnames / deferred apps:** multi-stopwatch, multi-timer, multi-counter, qr-maker, thanks-diary, world-time-clock, roulette, image-color-picker, bug-beat-blocks, bongo-bongo. Confirm each actual production hostname before creating a site mapping.
+- The collection Worker and shared browser client allowlist 17 specific production hosts across WORKS, TOOLS, GAMES and KIDS. App IDs not yet validated remain excluded.
+- `migrations/0003_app_sites.sql` extends the `sites.service` constraint to KIDS, recreates linked tables and the aggregate trigger/indexes, and registers 14 new sites disabled. **Applied successfully once** to preview D1 (2026-11-02 JST) and production D1 (2026-11-03 JST). DO NOT RE-EXECUTE on those databases. The migration SQL is retained as historical source and for controlled new-database provisioning.
+- Existing raw records and aggregates were preserved in both environments. On production, 3 sites/110 events/26 daily rows became 17 sites/110 events/26 daily rows; FK check returned no violations. This validates the migration state, not a complete end-to-end production traffic test.
+- Photo Memo preview branch adds `analytics.js` plus PWA shell caching and the preview D1 `photo-memo` row is enabled. The user opened its preview on 2026-11-03 and observed 1 PV/1 UU in D1. **The Photo Memo production app remains unchanged and the production D1 row remains disabled.**
+- Max accepted volume across all 17 enabled sites would be 17,000/day at 1,000 per site. Cleanup is bounded at 750 events/hour (~18,000/day nominal), with Worker/D1 free quotas and abuse exposure still needing observation as more sites are activated. This is not a security guarantee.
+- Use `client/analytics.js` with the matching `data-site-id`; it counts initial visible loads/reloads only and does not transmit photo content, location, clicks or app data. Ensure analytics failure never blocks functionality. Review privacy text before enabling production for each app.
+- **Not yet verified:** full `npm test` run in a Node 24 environment; end-to-end production ingestion after the collector update; 10 deferred app hostnames. Their URLs must be checked before allowlisting: multi-stopwatch, multi-timer, multi-counter, qr-maker, thanks-diary, world-time-clock, roulette, image-color-picker, bug-beat-blocks, bongo-bongo.
