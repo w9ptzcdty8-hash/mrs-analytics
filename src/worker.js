@@ -3,7 +3,25 @@ const MAX_BYTES = 512;
 export function jstDay(time) {
   return new Date(time + 9 * 3600000).toISOString().slice(0, 10);
 }
-const SITE_HOSTS = {'tools-home':'mrs-tools.pages.dev','works-home':'mrs-works.pages.dev','games-home':'mrs-games.pages.dev'};
+const SITE_HOSTS = {
+  "tools-home": "mrs-tools.pages.dev",
+  "works-home": "mrs-works.pages.dev",
+  "games-home": "mrs-games.pages.dev",
+  "kids-home": "kids-home-eh3.pages.dev",
+  "dice-and-coin": "dice-and-coin.pages.dev",
+  "garagara-pon": "garagara-pon.pages.dev",
+  "photo-memo": "photo-memo-epu.pages.dev",
+  "metronome": "metronome-57i.pages.dev",
+  "visual-timer": "visual-timer-epe.pages.dev",
+  "jan-code-reader": "jan-code-reader.pages.dev",
+  "whistle-master": "whistle-master.pages.dev",
+  "honki-janken": "honki-janken.pages.dev",
+  "jigsaw-puzzle": "jigsaw-puzzle-82i.pages.dev",
+  "abc-balloons": "abc-balloons.pages.dev",
+  "yubisaki-hanabi": "yubisaki-hanabi.pages.dev",
+  "oto-no-button": "oto-no-button.pages.dev",
+  "sawatte-english": "sawatte-english.pages.dev"
+};
 function originSite(origin, env) {
   try {
     const u = new URL(origin);
@@ -47,9 +65,9 @@ async function smallJson(request) {
 export async function cleanup(env, time) {
   const cutoff = Math.floor(time / 1000) - 30 * 86400;
   const oldDay = jstDay(time - 1096 * 86400000);
-  // Hourly, bounded work. 6,000 events/day capacity vs three sites capped at 1,000/day each.
+  // Hourly, bounded work. 18,000 events/day cleanup capacity vs 17 allowlisted sites capped at 1,000/day each.
   await env.DB.batch([
-    env.DB.prepare('DELETE FROM access_events WHERE event_id IN (SELECT event_id FROM access_events WHERE received_at < ? ORDER BY received_at LIMIT 250)').bind(cutoff),
+    env.DB.prepare('DELETE FROM access_events WHERE event_id IN (SELECT event_id FROM access_events WHERE received_at < ? ORDER BY received_at LIMIT 750)').bind(cutoff),
     env.DB.prepare('DELETE FROM daily_stats WHERE rowid IN (SELECT rowid FROM daily_stats WHERE day_jst < ? ORDER BY day_jst LIMIT 100)').bind(oldDay)
   ]);
 }

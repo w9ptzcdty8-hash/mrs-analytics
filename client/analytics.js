@@ -4,7 +4,25 @@
   if (!script) return;
   const site = script.dataset.siteId;
   const key = 'mrs.analytics.daily.' + site;
-  const host = {'tools-home':'mrs-tools.pages.dev','works-home':'mrs-works.pages.dev','games-home':'mrs-games.pages.dev'}[site];
+  const host = {
+  "tools-home": "mrs-tools.pages.dev",
+  "works-home": "mrs-works.pages.dev",
+  "games-home": "mrs-games.pages.dev",
+  "kids-home": "kids-home-eh3.pages.dev",
+  "dice-and-coin": "dice-and-coin.pages.dev",
+  "garagara-pon": "garagara-pon.pages.dev",
+  "photo-memo": "photo-memo-epu.pages.dev",
+  "metronome": "metronome-57i.pages.dev",
+  "visual-timer": "visual-timer-epe.pages.dev",
+  "jan-code-reader": "jan-code-reader.pages.dev",
+  "whistle-master": "whistle-master.pages.dev",
+  "honki-janken": "honki-janken.pages.dev",
+  "jigsaw-puzzle": "jigsaw-puzzle-82i.pages.dev",
+  "abc-balloons": "abc-balloons.pages.dev",
+  "yubisaki-hanabi": "yubisaki-hanabi.pages.dev",
+  "oto-no-button": "oto-no-button.pages.dev",
+  "sawatte-english": "sawatte-english.pages.dev"
+}[site];
   if (!host) return;
   const production = location.origin === 'https://' + host;
   const preview = location.hostname.endsWith('.' + host) && /^[a-z0-9-]+$/.test(location.hostname.slice(0,-host.length-1));
