@@ -124,3 +124,17 @@ test('allowlisted app origin/site mapping stays isolated',async()=>{
  assert.equal((await worker.fetch(request(pp,'https://feature.photo-memo-epu.pages.dev'),env)).status,204);
  assert.equal((await worker.fetch(request(pp,'https://feature.evil-abc.pages.dev'),env)).status,403);
 });
+
+test('centrally served client is byte-identical, executable JavaScript and never cached',async()=>{
+ const {clientSource}=await import('../src/client-source.js');
+ assert.equal(clientSource,readFileSync(new URL('../client/analytics.js',import.meta.url),'utf8'));
+ const {env}=environment();
+ const r=await worker.fetch(new Request('https://example.workers.dev/client.js'),env);
+ assert.equal(r.status,200);
+ assert.match(r.headers.get('content-type'),/^application\\/javascript/);
+ assert.equal(r.headers.get('cache-control'),'no-store');
+ assert.equal(r.headers.get('cross-origin-resource-policy'),'cross-origin');
+ assert.equal(await r.text(),clientSource);
+ assert.equal((await worker.fetch(new Request('https://example.workers.dev/client.js?other=1'),env)).status,404);
+ assert.equal((await worker.fetch(new Request('https://example.workers.dev/client.js',{method:'POST'}),env)).status,404);
+});
