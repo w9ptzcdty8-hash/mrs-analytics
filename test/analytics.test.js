@@ -131,7 +131,7 @@ test('centrally served client is byte-identical, executable JavaScript and never
  const {env}=environment();
  const r=await worker.fetch(new Request('https://example.workers.dev/client.js'),env);
  assert.equal(r.status,200);
- assert.match(r.headers.get('content-type'),/^application\\/javascript/);
+ assert.equal(r.headers.get('content-type')?.split(';')[0], 'application/javascript');
  assert.equal(r.headers.get('cache-control'),'no-store');
  assert.equal(r.headers.get('cross-origin-resource-policy'),'cross-origin');
  assert.equal(await r.text(),clientSource);
