@@ -1,3 +1,4 @@
+import { clientSource } from './client-source.js';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_BYTES = 512;
 export function jstDay(time) {
@@ -76,6 +77,14 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === '/health' && request.method === 'GET') {
       return Response.json({service: 'mrs-analytics', mode: env.MODE}, {headers: {'Cache-Control':'no-store'}});
+    }
+    if (url.pathname === '/client.js' && request.method === 'GET' && !url.search) {
+      return new Response(clientSource, {status:200, headers:{
+        'Content-Type':'application/javascript; charset=utf-8',
+        'Cache-Control':'no-store',
+        'X-Content-Type-Options':'nosniff',
+        'Cross-Origin-Resource-Policy':'cross-origin'
+      }});
     }
     if (url.pathname !== '/v1/collect' || url.search) return new Response(null, {status:404});
     const origin = request.headers.get('Origin') || '';
