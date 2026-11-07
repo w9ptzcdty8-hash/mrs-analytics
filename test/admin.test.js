@@ -42,8 +42,9 @@ test('unauthenticated assets and API do not touch the database',async()=>{
   assert.equal(queries.length,0);
 });
 test('date range validation rejects malformed dates, future dates, duplicate parameters and SQL input',()=>{
-  assert.deepEqual(range(new URLSearchParams('start=2026-10-05&end=2026-10-11'),'2026-10-11'),{start:'2026-10-05',end:'2026-10-11',site:''});
-  for(const query of ['end=2026-02-30','start=2026-10-12','end=2026-10-12','start=2025-01-01','site=x%27','sql=DROP','start=2026-10-01&start=2026-10-02','start=2026-10-11&end=2026-10-01'])assert.throws(()=>range(new URLSearchParams(query),'2026-10-11'));
+  assert.deepEqual(range(new URLSearchParams('start=2026-10-05&end=2026-10-11'),'2026-10-11'),{start:'2026-10-05',end:'2026-10-11',section:'',site:''});
+  assert.deepEqual(range(new URLSearchParams('section=KIDS&site=kids-home'),'2026-10-11').section,'KIDS');
+  for(const query of ['end=2026-02-30','start=2026-10-12','end=2026-10-12','start=2025-01-01','site=x%27','sql=DROP','start=2026-10-01&start=2026-10-02','start=2026-10-11&end=2026-10-01','section=UNKNOWN','section=TOOLS&section=KIDS','section=%27%20OR%201%3D1'])assert.throws(()=>range(new URLSearchParams(query),'2026-10-11'));
 });
 test('report totals, daily gaps and site filtering read only aggregate tables',async()=>{
   const {db,env,queries}=database();
@@ -52,7 +53,7 @@ test('report totals, daily gaps and site filtering read only aggregate tables',a
   assert.equal(data.daily[0].pageviews,null);assert.equal(data.daily[2].pageviews,0);
   assert.deepEqual(data.total,{pageviews:7,daily_unique_sum:4,unclassified_pageviews:1});
   assert.equal(data.today.pageviews,2);assert.equal(data.yesterday.pageviews,0);assert.equal(data.ranking[0].name,'MRS TOOLS トップ');
-  assert.equal(queries.length,4);assert.ok(queries.every(q=>!q.includes('access_events')));
+  assert.equal(queries.length,5);assert.ok(queries.every(q=>!q.includes('access_events')));
   assert.equal((await report(env,new URLSearchParams('site=missing'),Date.parse('2026-10-13T03:00:00Z'))).status,404);
 });
 test('authenticated handler serves protected assets, rejects writes and handles invalid ranges and DB failures',async()=>{
@@ -73,4 +74,39 @@ test('later site start dates stay unmeasured; disabled sites remain absent',asyn
  assert.deepEqual(works.daily.map(d=>d.pageviews),[null,null,0]);assert.equal(works.yesterday.pageviews,null);assert.equal(works.measured_since,'2026-10-13');
  assert.equal(works.sites.length,2);assert.ok(!works.sites.some(s=>s.site_id==='games-home'));
  const all=await report(env,new URLSearchParams('start=2026-10-10&end=2026-10-13'),time);assert.equal(all.measured_since,'2026-10-11');assert.equal(all.daily[0].pageviews,null);
+});
+
+test('section totals match all-sites total and site lists remain scoped',async()=>{
+  const {db,env,queries}=database();
+  db.exec("UPDATE sites SET enabled=1,measured_since='2026-10-11' WHERE site_id IN ('works-home','games-home');");
+  db.exec("INSERT INTO daily_stats VALUES ('2026-10-11','tools-home',5,3,0),('2026-10-11','works-home',3,2,1),('2026-10-11','games-home',7,4,0),('2026-10-12','tools-home',2,1,0);");
+  const now=Date.parse('2026-10-12T03:00:00Z');
+  const rangeText='start=2026-10-11&end=2026-10-12';
+  const all=await report(env,new URLSearchParams(rangeText),now);
+  const tools=await report(env,new URLSearchParams(rangeText+'&section=TOOLS'),now);
+  const works=await report(env,new URLSearchParams(rangeText+'&section=WORKS'),now);
+  const games=await report(env,new URLSearchParams(rangeText+'&section=GAMES'),now);
+  const kids=await report(env,new URLSearchParams(rangeText+'&section=KIDS'),now);
+  assert.equal(all.total.pageviews,17);
+  assert.equal(tools.total.pageviews,7);
+  assert.equal(works.total.pageviews,3);
+  assert.equal(games.total.pageviews,7);
+  assert.equal(kids.total.pageviews,0);
+  assert.equal(all.total.pageviews,tools.total.pageviews+works.total.pageviews+games.total.pageviews+kids.total.pageviews);
+  assert.equal(all.section_ranking.reduce((sum,item)=>sum+item.pageviews,0),17);
+  assert.deepEqual(tools.ranking.map(item=>item.service),['TOOLS']);
+  assert.deepEqual(tools.daily.map(item=>item.pageviews),[5,2]);
+  assert.equal(tools.today.pageviews,2);
+  assert.equal(tools.yesterday.pageviews,5);
+  assert.equal((await report(env,new URLSearchParams(rangeText+'&section=KIDS&site=tools-home'),now)).status,404);
+  assert.ok(queries.every(query=>query.startsWith('SELECT ')&&!query.includes('access_events')));
+});
+
+test('section start-date handling does not turn unmeasured days into zeros',async()=>{
+  const {db,env}=database();
+  db.exec("UPDATE sites SET enabled=1,measured_since='2026-10-12' WHERE site_id='works-home';");
+  const data=await report(env,new URLSearchParams('start=2026-10-11&end=2026-10-13&section=WORKS'),Date.parse('2026-10-13T03:00:00Z'));
+  assert.deepEqual(data.daily.map(x=>x.pageviews),[null,0,0]);
+  assert.equal(data.measured_since,'2026-10-12');
+  assert.equal(data.section,'WORKS');
 });
