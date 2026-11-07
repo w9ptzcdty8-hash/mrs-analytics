@@ -14,7 +14,7 @@
   </section>
   <section class="panel"><h2>期間別の集計</h2>
     <div class="presets" aria-label="期間の選択"><button type="button" data-days="7" aria-pressed="true">7日間</button><button type="button" data-days="30" aria-pressed="false">30日間</button></div>
-    <form id="filters"><div class="date-fields"><label>開始日<input type="date" id="start" required></label><label>終了日<input type="date" id="end" required></label></div><label>対象<select id="site"><option value="">計測対象すべて</option></select></label><button type="submit" id="refresh">集計を表示</button></form>
+    <form id="filters"><div class="date-fields"><label>開始日<input type="date" id="start" required></label><label>終了日<input type="date" id="end" required></label></div><label>セクション<select id="section"><option value="">全セクション</option><option value="WORKS">MRS WORKS</option><option value="TOOLS">MRS TOOLS</option><option value="GAMES">MRS GAMES</option><option value="KIDS">MRS KIDS</option></select></label><label>アプリ・サイト<select id="site"><option value="">セクション内すべて</option></select></label><button type="submit" id="refresh">集計を表示</button></form>
     <p id="status" role="status" aria-live="polite">読み込み中…</p><p id="relogin" hidden><a href="/">再ログインする</a></p>
     <div id="results" hidden>
       <div class="totals"><p>アクセス数<strong id="period-pv">—</strong></p><p>日別ユニーク相当の合計<strong id="period-uv">—</strong></p></div>
@@ -22,7 +22,8 @@
       <h3>日別アクセス数の推移</h3><div id="chart" class="chart"></div>
       <p class="muted">日別ユニーク相当はサイト・ブラウザ・日ごとの目安です。期間内の人数ではありません。</p>
       <details><summary>日別の数値を見る</summary><div class="table-wrap"><table><thead><tr><th scope="col">日付</th><th scope="col">アクセス</th><th scope="col">ユニーク相当</th></tr></thead><tbody id="daily"></tbody></table></div></details>
-      <h3>対象別のアクセス数</h3><div class="table-wrap"><table><thead><tr><th scope="col">対象</th><th scope="col">アクセス</th></tr></thead><tbody id="ranking"></tbody></table></div>
+      <div id="section-ranking-wrap"><h3>セクション別のアクセス数</h3><div class="table-wrap"><table><thead><tr><th scope="col">セクション</th><th scope="col">アクセス</th></tr></thead><tbody id="section-ranking"></tbody></table></div></div>
+      <h3>アプリ・サイト別のアクセス数</h3><div class="table-wrap"><table><thead><tr><th scope="col">対象</th><th scope="col">アクセス</th></tr></thead><tbody id="ranking"></tbody></table></div>
       <p class="muted" id="unclassified"></p>
     </div>
   </section>
