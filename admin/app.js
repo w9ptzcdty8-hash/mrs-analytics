@@ -2,7 +2,14 @@
   'use strict';
   const $=id=>document.getElementById(id), format=n=>n==null?'未計測':new Intl.NumberFormat('ja-JP').format(n);
   const DAY=86400000, today=new Date(Date.now()+9*3600000).toISOString().slice(0,10);
-  let active;
+  let active, knownSites=[];
+  const sectionNames={WORKS:'MRS WORKS',TOOLS:'MRS TOOLS',GAMES:'MRS GAMES',KIDS:'MRS KIDS'};
+  function siteOptions() {
+    const previous=$('site').value, section=$('section').value;
+    $('site').replaceChildren(new Option('セクション内すべて',''));
+    knownSites.filter(s=>!section || s.service===section).forEach(s=>$('site').add(new Option(s.name,s.site_id)));
+    $('site').value=[...$('site').options].some(o=>o.value===previous)?previous:'';
+  }
   function preset(days) {
     $('end').value=today;
     $('start').value=new Date(Date.parse(today+'T00:00:00Z')-(days-1)*DAY).toISOString().slice(0,10);
@@ -26,13 +33,17 @@
   }
   function row(values) {const tr=document.createElement('tr');values.forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.append(td);});return tr;}
   function render(data) {
-    $('measurement').textContent='集計は日本時間です。計測開始：'+data.sites.map(s=>s.name+' '+s.measured_since).join('／')+'。開始前は未計測です。全体集計は各サイトの計測開始後の記録を合計します。';
+    knownSites=data.sites;
+    siteOptions();
+    const scope=data.site?data.sites.find(s=>s.site_id===data.site)?.name:(data.section?sectionNames[data.section]:'全セクション');
+    $('measurement').textContent='対象：'+(scope || '全セクション')+'／日本時間。計測開始：'+(data.measured_since || '未計測')+'。サイトごとに計測開始日が異なり、開始前のアクセス数は集計されません。';
     $('today-pv').textContent=format(data.today.pageviews);$('today-uv').textContent='日別ユニーク相当 '+format(data.today.unique_visitors);
     $('yesterday-pv').textContent=format(data.yesterday.pageviews);$('yesterday-uv').textContent='日別ユニーク相当 '+format(data.yesterday.unique_visitors);
     $('period-pv').textContent=format(data.total.pageviews);$('period-uv').textContent=format(data.total.daily_unique_sum);
     $('period-label').textContent=data.start+' 〜 '+data.end+'（日本時間）';
-    const selection=$('site').value;$('site').replaceChildren(new Option('計測対象すべて',''));
-    data.sites.forEach(s=>$('site').add(new Option(s.name,s.site_id)));$('site').value=selection;
+    $('section-ranking-wrap').hidden=Boolean(data.section || data.site);
+    $('section-ranking').replaceChildren(...data.section_ranking.map(d=>row([sectionNames[d.service] || d.service,format(d.pageviews)])));
+    if(!data.section_ranking.length)$('section-ranking').append(row(['この期間の記録はありません','—']));
     $('daily').replaceChildren(...[...data.daily].reverse().map(d=>row([d.day_jst,format(d.pageviews),format(d.unique_visitors)])));
     $('ranking').replaceChildren(...data.ranking.map(d=>row([d.name,format(d.pageviews)])));
     if(!data.ranking.length)$('ranking').append(row(['この期間の記録はありません','—']));
@@ -46,7 +57,9 @@
     const timer=setTimeout(()=>controller.abort(),10000);
     try {
       if(navigator.onLine===false)throw Error('オフラインです。ネット接続後に「集計を表示」を押してください。');
-      const params=new URLSearchParams({start:$('start').value,end:$('end').value});if($('site').value)params.set('site',$('site').value);
+      const params=new URLSearchParams({start:$('start').value,end:$('end').value});
+      if($('section').value)params.set('section',$('section').value);
+      if($('site').value)params.set('site',$('site').value);
       const response=await fetch('/api/report?'+params,{credentials:'same-origin',cache:'no-store',signal:controller.signal,redirect:'error'});
       if(response.status===401||response.status===403){$('relogin').hidden=false;throw Error('ログイン期限が切れました。再ログインしてください。');}
       if(!response.headers.get('Content-Type')?.includes('application/json')){$('relogin').hidden=false;throw Error('再ログインしてから集計を表示してください。');}
@@ -57,5 +70,7 @@
   }
   $('filters').addEventListener('submit',e=>{e.preventDefault();document.querySelectorAll('[data-days]').forEach(b=>b.setAttribute('aria-pressed','false'));void load();});
   document.querySelectorAll('[data-days]').forEach(b=>b.addEventListener('click',()=>{preset(Number(b.dataset.days));void load();}));
+  $('section').addEventListener('change',()=>{$('site').value='';siteOptions();void load();});
+  $('site').addEventListener('change',()=>void load());
   $('end').max=today;$('start').max=today;preset(7);void load();
 })();
