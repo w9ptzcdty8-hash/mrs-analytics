@@ -19,11 +19,11 @@
     <div id="results" hidden>
       <div class="totals"><p>アクセス数<strong id="period-pv">—</strong></p><p>日別ユニーク相当の合計<strong id="period-uv">—</strong></p></div>
       <p class="muted" id="period-label"></p>
-      <h3>日別アクセス数の推移</h3><div id="chart" class="chart"></div>
+      <h3 id="chart-title">日別アクセス数の推移</h3><div class="presets" role="group" aria-label="グラフの表示指標"><button type="button" data-chart-metric="pageviews" aria-pressed="true">アクセス数</button><button type="button" data-chart-metric="unique_visitors" aria-pressed="false">日別ユニーク相当</button></div><div id="chart" class="chart"></div>
       <p class="muted">日別ユニーク相当はサイト・ブラウザ・日ごとの目安です。期間内の人数ではありません。</p>
       <details><summary>日別の数値を見る</summary><div class="table-wrap"><table><thead><tr><th scope="col">日付</th><th scope="col">アクセス</th><th scope="col">ユニーク相当</th></tr></thead><tbody id="daily"></tbody></table></div></details>
-      <div id="section-ranking-wrap"><h3>セクション別のアクセス数</h3><div class="table-wrap"><table><thead><tr><th scope="col">セクション</th><th scope="col">アクセス</th></tr></thead><tbody id="section-ranking"></tbody></table></div></div>
-      <h3>アプリ・サイト別のアクセス数</h3><div class="table-wrap"><table><thead><tr><th scope="col">対象</th><th scope="col">アクセス</th></tr></thead><tbody id="ranking"></tbody></table></div>
+      <div id="section-ranking-wrap"><h3>セクション別のアクセス数</h3><div class="table-wrap"><table><thead><tr><th scope="col">セクション</th><th scope="col">アクセス</th><th scope="col">日別ユニーク<br>相当の合計</th></tr></thead><tbody id="section-ranking"></tbody></table></div></div>
+      <h3>アプリ・サイト別のアクセス数</h3><div class="table-wrap"><table><thead><tr><th scope="col">対象</th><th scope="col">アクセス</th><th scope="col">日別ユニーク<br>相当の合計</th></tr></thead><tbody id="ranking"></tbody></table></div>
       <p class="muted" id="unclassified"></p>
     </div>
   </section>
