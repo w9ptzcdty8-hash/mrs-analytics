@@ -2,7 +2,8 @@
   'use strict';
   const $=id=>document.getElementById(id), format=n=>n==null?'未計測':new Intl.NumberFormat('ja-JP').format(n);
   const DAY=86400000, today=new Date(Date.now()+9*3600000).toISOString().slice(0,10);
-  let active, knownSites=[];
+  let active, knownSites=[], chartDays=[], chartMetric='pageviews';
+  const chartLabels={pageviews:'アクセス数',unique_visitors:'ユニーク相当'};
   const sectionNames={WORKS:'MRS WORKS',TOOLS:'MRS TOOLS',GAMES:'MRS GAMES',KIDS:'MRS KIDS'};
   function siteOptions() {
     const previous=$('site').value, section=$('section').value;
@@ -18,15 +19,17 @@
   const NS='http://www.w3.org/2000/svg';
   function svgNode(name,attrs,text) {const n=document.createElementNS(NS,name);for(const [k,v] of Object.entries(attrs))n.setAttribute(k,String(v));if(text!=null)n.textContent=text;return n;}
   function chart(days) {
+    const title='日別'+chartLabels[chartMetric]+'の推移';
+    $('chart-title').textContent=title;
     const root=$('chart');root.replaceChildren();
     const width=Math.max(300,root.clientWidth || 660);
-    const svg=svgNode('svg',{viewBox:'0 0 '+width+' 220',role:'img','aria-label':'日別アクセス数の推移。詳しい数値は下の日別表で確認できます。'});
-    const max=Math.max(3,Math.ceil(Math.max(...days.map(d=>d.pageviews || 0))/3)*3),plotWidth=width-72,x=i=>48+(days.length===1?plotWidth/2:i*plotWidth/(days.length-1)),y=v=>174-v/max*150;
+    const svg=svgNode('svg',{viewBox:'0 0 '+width+' 220',role:'img','aria-label':title+'。詳しい数値は下の日別表で確認できます。'});
+    const max=Math.max(3,Math.ceil(Math.max(...days.map(d=>d[chartMetric] || 0))/3)*3),plotWidth=width-72,x=i=>48+(days.length===1?plotWidth/2:i*plotWidth/(days.length-1)),y=v=>174-v/max*150;
     for(let i=0;i<=3;i++){const v=max*i/3;svg.append(svgNode('line',{x1:48,y1:y(v),x2:width-24,y2:y(v),class:'grid'}),svgNode('text',{x:40,y:y(v)+4,'text-anchor':'end'},String(Math.round(v))));}
     let path='',wasMissing=true;
-    days.forEach((d,i)=>{if(d.pageviews==null){wasMissing=true;return;}path+=(wasMissing?'M':'L')+x(i)+' '+y(d.pageviews)+' ';wasMissing=false;});
+    days.forEach((d,i)=>{if(d[chartMetric]==null){wasMissing=true;return;}path+=(wasMissing?'M':'L')+x(i)+' '+y(d[chartMetric])+' ';wasMissing=false;});
     svg.append(svgNode('path',{d:path,class:'line'}));
-    days.forEach((d,i)=>{if(d.pageviews!=null){const c=svgNode('circle',{cx:x(i),cy:y(d.pageviews),r:days.length>60?1.5:3,class:'dot'});c.append(svgNode('title',{},d.day_jst+'：'+format(d.pageviews)+'アクセス'));svg.append(c);}});
+    days.forEach((d,i)=>{if(d[chartMetric]!=null){const c=svgNode('circle',{cx:x(i),cy:y(d[chartMetric]),r:days.length>60?1.5:3,class:'dot'});c.append(svgNode('title',{},d.day_jst+'：'+format(d[chartMetric])+'件'));svg.append(c);}});
     const indices=[...new Set([0,Math.floor((days.length-1)/2),days.length-1])];
     indices.forEach(i=>svg.append(svgNode('text',{x:x(i),y:204,'text-anchor':i===0?'start':i===days.length-1?'end':'middle'},days[i].day_jst.slice(5))));
     root.append(svg);
@@ -42,13 +45,13 @@
     $('period-pv').textContent=format(data.total.pageviews);$('period-uv').textContent=format(data.total.daily_unique_sum);
     $('period-label').textContent=data.start+' 〜 '+data.end+'（日本時間）';
     $('section-ranking-wrap').hidden=Boolean(data.section || data.site);
-    $('section-ranking').replaceChildren(...data.section_ranking.map(d=>row([sectionNames[d.service] || d.service,format(d.pageviews)])));
-    if(!data.section_ranking.length)$('section-ranking').append(row(['この期間の記録はありません','—']));
+    $('section-ranking').replaceChildren(...data.section_ranking.map(d=>row([sectionNames[d.service] || d.service,format(d.pageviews),format(d.unique_visitors)])));
+    if(!data.section_ranking.length)$('section-ranking').append(row(['この期間の記録はありません','—','—']));
     $('daily').replaceChildren(...[...data.daily].reverse().map(d=>row([d.day_jst,format(d.pageviews),format(d.unique_visitors)])));
-    $('ranking').replaceChildren(...data.ranking.map(d=>row([d.name,format(d.pageviews)])));
-    if(!data.ranking.length)$('ranking').append(row(['この期間の記録はありません','—']));
+    $('ranking').replaceChildren(...data.ranking.map(d=>row([d.name,format(d.pageviews),format(d.unique_visitors)])));
+    if(!data.ranking.length)$('ranking').append(row(['この期間の記録はありません','—','—']));
     $('unclassified').textContent='識別IDなしのアクセス：'+format(data.total.unclassified_pageviews)+'。アクセス数には含め、ユニーク相当には含めません。';
-    chart(data.daily);$('results').hidden=false;
+    chartDays=data.daily;$('results').hidden=false;chart(chartDays);
     $('status').textContent='更新：'+new Date(data.generated_at).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'})+'（日本時間）';
   }
   async function load() {
@@ -70,6 +73,12 @@
   }
   $('filters').addEventListener('submit',e=>{e.preventDefault();document.querySelectorAll('[data-days]').forEach(b=>b.setAttribute('aria-pressed','false'));void load();});
   document.querySelectorAll('[data-days]').forEach(b=>b.addEventListener('click',()=>{preset(Number(b.dataset.days));void load();}));
+  const metricButtons=document.querySelectorAll('[data-chart-metric]');
+  metricButtons.forEach(button=>button.addEventListener('click',()=>{
+    chartMetric=button.dataset.chartMetric;
+    metricButtons.forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
+    if(chartDays.length)chart(chartDays);
+  }));
   $('section').addEventListener('change',()=>{$('site').value='';siteOptions();void load();});
   $('site').addEventListener('change',()=>void load());
   $('end').max=today;$('start').max=today;preset(7);void load();
